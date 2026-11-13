@@ -18,7 +18,7 @@ interface PendingOrdersCardProps {
 }
 
 export function PendingOrdersCard({ orders }: PendingOrdersCardProps) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const fmt = useFormat();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function PendingOrdersCard({ orders }: PendingOrdersCardProps) {
                     <td className="px-4 py-3 text-right font-mono">{fmt.number(order.stop_loss, 5)}</td>
                     <td className="px-4 py-3 text-right font-mono">{fmt.number(order.take_profit, 5)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-text-secondary">
-                      {formatDateTime(order.expires_at)}
+                      {formatDateTime(order.expires_at, lang)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button

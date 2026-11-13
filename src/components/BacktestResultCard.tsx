@@ -1,5 +1,6 @@
 import { Download } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { useFormat } from '@/lib/format';
 import { Button } from '@/components/ui';
 import { downloadTradesCsv } from '@/lib/strategyFile';
 import type { BacktestResult } from '@/lib/types';
@@ -33,6 +34,7 @@ function EquityChart({ values }: { values: number[] }) {
 
 export function BacktestResultCard({ result }: { result: BacktestResult }) {
   const { t } = useTranslation();
+  const fmt = useFormat();
 
   if (result.status === 'failed') {
     return <p className="text-danger-text text-sm">{result.error_message || t('strat.failed')}</p>;
@@ -88,7 +90,7 @@ export function BacktestResultCard({ result }: { result: BacktestResult }) {
 
       {(result.total_commission ?? 0) > 0 && (
         <div className="text-text-muted text-xs">
-          {t('strat.totalCommission')}: <span className="font-mono">${result.total_commission!.toFixed(2)}</span>
+          {t('strat.totalCommission')}: <span className="font-mono">{fmt.currency(result.total_commission ?? 0)}</span>
         </div>
       )}
 

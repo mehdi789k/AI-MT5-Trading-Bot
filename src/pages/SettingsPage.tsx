@@ -50,6 +50,9 @@ export function SettingsPage() {
     daily_loss_reset_hour: 0,
   });
   const [savingCapital, setSavingCapital] = useState(false);
+  const [globalSaveError, setGlobalSaveError] = useState(false);
+  const [capitalSaveError, setCapitalSaveError] = useState(false);
+  const [symbolError, setSymbolError] = useState(false);
 
   const categories: { value: SymbolCategory; label: string }[] = [
     { value: 'forex', label: t('set.forex') },
@@ -97,42 +100,73 @@ export function SettingsPage() {
 
   const saveGlobal = async () => {
     setSavingGlobal(true);
-    await updateSettings({
-      max_risk_percent: globalForm.max_risk_percent,
-      max_concurrent_positions: globalForm.max_concurrent_positions,
-      auto_mode: globalForm.auto_mode,
-    });
-    setSavingGlobal(false);
+    setGlobalSaveError(false);
+    try {
+      const ok = await updateSettings({
+        max_risk_percent: globalForm.max_risk_percent,
+        max_concurrent_positions: globalForm.max_concurrent_positions,
+        auto_mode: globalForm.auto_mode,
+      });
+      if (!ok) setGlobalSaveError(true);
+    } catch {
+      setGlobalSaveError(true);
+    } finally {
+      setSavingGlobal(false);
+    }
   };
 
   const saveCapital = async () => {
     setSavingCapital(true);
-    await updateSettings({
-      daily_loss_limit_percent: globalForm.daily_loss_limit_percent,
-      max_drawdown_percent: globalForm.max_drawdown_percent,
-      max_total_risk_percent: globalForm.max_total_risk_percent,
-      risk_per_trade_mode: globalForm.risk_per_trade_mode,
-      fixed_risk_amount: globalForm.fixed_risk_amount,
-      enable_limit_orders: globalForm.enable_limit_orders,
-      limit_order_offset_points: globalForm.limit_order_offset_points,
-      daily_loss_reset_hour: globalForm.daily_loss_reset_hour,
-    });
-    setSavingCapital(false);
+    setCapitalSaveError(false);
+    try {
+      const ok = await updateSettings({
+        daily_loss_limit_percent: globalForm.daily_loss_limit_percent,
+        max_drawdown_percent: globalForm.max_drawdown_percent,
+        max_total_risk_percent: globalForm.max_total_risk_percent,
+        risk_per_trade_mode: globalForm.risk_per_trade_mode,
+        fixed_risk_amount: globalForm.fixed_risk_amount,
+        enable_limit_orders: globalForm.enable_limit_orders,
+        limit_order_offset_points: globalForm.limit_order_offset_points,
+        daily_loss_reset_hour: globalForm.daily_loss_reset_hour,
+      });
+      if (!ok) setCapitalSaveError(true);
+    } catch {
+      setCapitalSaveError(true);
+    } finally {
+      setSavingCapital(false);
+    }
   };
 
   const resumeTrading = async () => {
-    await updateSettings({ trading_paused: false, peak_equity: null });
+    try {
+      await updateSettings({ trading_paused: false, peak_equity: null });
+    } catch {
+      console.error('Failed to resume trading');
+    }
   };
 
   const saveSymbol = async () => {
     if (!editingSymbol) return;
     setSavingSymbol(true);
-    const { id, created_at, updated_at, ...patch } = editingSymbol;
-    void id; void created_at; void updated_at;
-    await supabase.from('symbol_config').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', editingSymbol.id);
-    setSavingSymbol(false);
-    setEditingSymbol(null);
-    fetchSymbols();
+    setSymbolError(false);
+    try {
+      const { id, created_at, updated_at, ...patch } = editingSymbol;
+      void id; void created_at; void updated_at;
+      const { error } = await supabase
+        .from('symbol_config')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', editingSymbol.id);
+      if (error) {
+        setSymbolError(true);
+        return;
+      }
+      setEditingSymbol(null);
+      fetchSymbols();
+    } catch {
+      setSymbolError(true);
+    } finally {
+      setSavingSymbol(false);
+    }
   };
 
   const addSymbol = async (symbolName?: string, category?: SymbolCategory) => {
@@ -150,7 +184,11 @@ export function SettingsPage() {
       })
       .select()
       .single();
-    if (!error && data) {
+    if (error) {
+      console.error('Failed to add symbol:', error);
+      return;
+    }
+    if (data) {
       setSymbols((prev) => [...prev, data as SymbolConfig].sort((a, b) => a.symbol.localeCompare(b.symbol)));
       if (!symbolName) setNewSymbol('');
     }
@@ -171,13 +209,24 @@ export function SettingsPage() {
   }, [mt5Symbols, symbolCatFilter, symbolSearch]);
 
   const deleteSymbol = async (id: string) => {
-    await supabase.from('symbol_config').delete().eq('id', id);
+    const { error } = await supabase.from('symbol_config').delete().eq('id', id);
+    if (error) {
+      console.error('Failed to delete symbol:', error);
+      return;
+    }
     setSymbols((prev) => prev.filter((s) => s.id !== id));
   };
 
   const toggleSymbolEnabled = async (sym: SymbolConfig) => {
     const newEnabled = !sym.enabled;
-    await supabase.from('symbol_config').update({ enabled: newEnabled, updated_at: new Date().toISOString() }).eq('id', sym.id);
+    const { error } = await supabase
+      .from('symbol_config')
+      .update({ enabled: newEnabled, updated_at: new Date().toISOString() })
+      .eq('id', sym.id);
+    if (error) {
+      console.error('Failed to toggle symbol:', error);
+      return;
+    }
     setSymbols((prev) => prev.map((s) => (s.id === sym.id ? { ...s, enabled: newEnabled } : s)));
   };
 
@@ -233,7 +282,8 @@ export function SettingsPage() {
             <p className="text-text-muted text-xs mt-1">{t('set.autoTradeDesc')}</p>
           </div>
         </div>
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex justify-end items-center gap-3">
+          {globalSaveError && <span className="text-danger-text text-sm">{t('ai.saveFailed')}</span>}
           <Button onClick={saveGlobal} disabled={savingGlobal}>
             <Save size={16} className="mr-2" /> {savingGlobal ? t('set.saving') : t('set.saveGlobal')}
           </Button>
@@ -370,7 +420,8 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex justify-end items-center gap-3">
+          {capitalSaveError && <span className="text-danger-text text-sm">{t('ai.saveFailed')}</span>}
           <Button onClick={saveCapital} disabled={savingCapital}>
             <Save size={16} className="mr-2" /> {savingCapital ? t('set.saving') : t('cap.saveCapital')}
           </Button>
@@ -718,7 +769,8 @@ export function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end mt-6">
+            <div className="flex gap-3 justify-end items-center mt-6">
+              {symbolError && <span className="text-danger-text text-sm me-auto">{t('ai.saveFailed')}</span>}
               <Button variant="ghost" onClick={() => setEditingSymbol(null)}>{t('set.cancel')}</Button>
               <Button onClick={saveSymbol} disabled={savingSymbol}>
                 <Save size={16} className="mr-2" /> {savingSymbol ? t('set.saving') : t('set.saveChanges')}

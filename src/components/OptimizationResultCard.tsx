@@ -2,50 +2,58 @@ import { useState } from 'react';
 import { Check, Sparkles, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useTranslation } from '@/lib/i18n';
+import { formatDateTime } from '@/lib/format';
 import { Badge, Button, Card } from '@/components/ui';
 import type { StrategyOptimization, Strategy } from '@/lib/types';
 
-function MetricRow({ label, before, after, format }: { label: string; before: number; after: number; format?: (v: number) => string }) {
+function MetricRow({ label, before, after, format }: { label: string; before: number | null; after: number | null; format?: (v: number) => string }) {
   const fmt = format ?? ((v: number) => v.toFixed(2));
-  const improved = after > before;
-  const worse = after < before;
+  const b = before ?? 0;
+  const a = after ?? 0;
+  const improved = a > b;
+  const worse = a < b;
   const color = improved ? 'text-success-text' : worse ? 'text-danger-text' : 'text-text-muted';
   const arrow = improved ? '↑' : worse ? '↓' : '→';
   return (
     <div className="flex items-center justify-between gap-2 py-1.5 border-b border-border-subtle last:border-0">
       <span className="text-text-secondary text-sm">{label}</span>
       <div className="flex items-center gap-3 font-mono text-sm">
-        <span className="text-text-muted">{fmt(before)}</span>
+        <span className="text-text-muted">{fmt(b)}</span>
         <span className="text-text-muted">{arrow}</span>
-        <span className={color}>{fmt(after)}</span>
+        <span className={color}>{fmt(a)}</span>
       </div>
     </div>
   );
 }
 
 export function OptimizationResultCard({ optimization, strategy }: { optimization: StrategyOptimization; strategy: Strategy }) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleApply = async () => {
     setApplying(true);
-    const { error } = await supabase
-      .from('strategies')
-      .update({
-        code: optimization.optimized_code,
-        version: strategy.version + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', strategy.id);
-    setApplying(false);
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from('strategies')
+        .update({
+          code: optimization.optimized_code,
+          version: strategy.version + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', strategy.id);
+      if (error) {
+        setNotice({ type: 'error', text: t('strat.applyFailed') });
+        return;
+      }
+      setConfirming(false);
+      setNotice({ type: 'success', text: t('strat.applied') });
+    } catch {
       setNotice({ type: 'error', text: t('strat.applyFailed') });
-      return;
+    } finally {
+      setApplying(false);
     }
-    setConfirming(false);
-    setNotice({ type: 'success', text: t('strat.applied') });
   };
 
   return (
@@ -54,7 +62,7 @@ export function OptimizationResultCard({ optimization, strategy }: { optimizatio
         <Sparkles size={18} className="text-accent-primary" />
         <span className="font-mono font-semibold text-text-primary">{optimization.symbol}</span>
         <Badge variant="neutral">{optimization.timeframe}</Badge>
-        <span className="text-text-muted text-xs">{new Date(optimization.created_at).toLocaleString()}</span>
+        <span className="text-text-muted text-xs">{formatDateTime(optimization.created_at, lang)}</span>
       </div>
 
       {notice && (

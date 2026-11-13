@@ -21,7 +21,7 @@ export function PnlChart({ days, balance, currency, dailyLossLimit, maxDrawdown 
   const fmt = useFormat();
   const [hovered, setHovered] = useState<number | null>(null);
 
-  if (!balance) {
+  if (balance === null) {
     return (
       <Card className="p-5">
         <h2 className="text-text-primary font-semibold">{t('dash.pnlChart')}</h2>
@@ -30,7 +30,8 @@ export function PnlChart({ days, balance, currency, dailyLossLimit, maxDrawdown 
     );
   }
 
-  const points = days.map((d) => ({ key: d.key, profit: d.profit, pct: (d.profit / balance) * 100 }));
+  const safeBalance = balance || 1;
+  const points = days.map((d) => ({ key: d.key, profit: d.profit, pct: (d.profit / safeBalance) * 100 }));
   const hasActivity = days.some((d) => d.profit !== 0);
   const limit = Math.max(dailyLossLimit, maxDrawdown, 1, ...points.map((p) => Math.abs(p.pct))) * 1.15;
 

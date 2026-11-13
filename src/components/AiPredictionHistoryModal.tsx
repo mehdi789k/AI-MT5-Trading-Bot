@@ -63,8 +63,10 @@ export function AiPredictionHistoryModal({ onClose }: { onClose: () => void }) {
         <ul className="space-y-2">
           {rows.map((row, index) => {
             const previous = rows[index + 1];
+            const prevSnap = previous?.snapshot ?? {};
+            const curSnap = row.snapshot ?? {};
             const changes = previous
-              ? AI_SETTING_FIELDS.filter((field) => previous.snapshot[field.key] !== row.snapshot[field.key])
+              ? AI_SETTING_FIELDS.filter((field) => prevSnap[field.key] !== curSnap[field.key])
               : [];
             return (
               <li key={row.id} className="p-3 bg-bg-tertiary rounded-lg">
@@ -75,7 +77,7 @@ export function AiPredictionHistoryModal({ onClose }: { onClose: () => void }) {
                   <ul className="mt-1 space-y-0.5">
                     {changes.map((field) => (
                       <li key={field.key} className="text-text-primary text-sm font-mono">
-                        {t(`ai.field.${field.key}`)}: {previous.snapshot[field.key]} → {row.snapshot[field.key]}
+                        {t(`ai.field.${field.key}`)}: {prevSnap[field.key]} → {curSnap[field.key]}
                       </li>
                     ))}
                   </ul>

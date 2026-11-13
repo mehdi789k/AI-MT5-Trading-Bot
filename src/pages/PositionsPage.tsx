@@ -20,7 +20,7 @@ export function PositionsPage() {
   const handleClosePosition = async (position: OpenPosition) => {
     setClosingId(position.id);
     try {
-      await supabase.from('bot_logs').insert({
+      const { error } = await supabase.from('bot_logs').insert({
         level: 'info',
         message: `Manual close requested for ticket ${position.mt5_ticket}`,
         symbol: position.symbol,
@@ -30,6 +30,10 @@ export function PositionsPage() {
           requested_by: 'dashboard',
         },
       });
+      if (error) {
+        console.error('Failed to send close request:', error);
+        return;
+      }
       setConfirmClose(null);
     } catch (err) {
       console.error('Failed to send close request:', err);

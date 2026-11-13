@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Brain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, type Lang } from '@/lib/i18n';
 import { useFormat } from '@/lib/format';
 import { Card, Badge } from '@/components/ui';
 import { formatDateTime } from '@/lib/format';
@@ -52,7 +52,7 @@ export function PredictionsPage() {
         {symbols.map((sym) => {
           const pred = latestBySymbol.get(sym.symbol);
           return (
-            <PredictionCard key={sym.id} symbol={sym.symbol} categoryLabel={t(`set.${sym.category}`)} prediction={pred} t={t} fmt={fmt} />
+            <PredictionCard key={sym.id} symbol={sym.symbol} categoryLabel={t(`set.${sym.category}`)} prediction={pred} t={t} fmt={fmt} lang={lang} />
           );
         })}
         {symbols.length === 0 && !loading && (
@@ -129,9 +129,10 @@ interface PredCardProps {
   prediction: Prediction | undefined;
   t: (key: string) => string;
   fmt: ReturnType<typeof useFormat>;
+  lang: Lang;
 }
 
-function PredictionCard({ symbol, categoryLabel, prediction, t, fmt }: PredCardProps) {
+function PredictionCard({ symbol, categoryLabel, prediction, t, fmt, lang }: PredCardProps) {
   const direction = prediction?.direction ?? 'neutral';
   const confidence = prediction?.confidence ?? 0;
 
@@ -165,7 +166,7 @@ function PredictionCard({ symbol, categoryLabel, prediction, t, fmt }: PredCardP
         <>
           <div className="flex items-center gap-2 mb-3">
             <DirectionBadge direction={direction} t={t} />
-            <span className="text-text-muted text-xs">{formatDateTime(prediction.created_at)}</span>
+            <span className="text-text-muted text-xs">{formatDateTime(prediction.created_at, lang)}</span>
           </div>
           <div className="space-y-1.5">
             <div className="flex justify-between text-sm">

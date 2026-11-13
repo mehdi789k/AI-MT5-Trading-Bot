@@ -251,11 +251,11 @@ export function DashboardPage() {
             <div className="grid grid-cols-3 gap-6">
               <MiniStat
                 label={t('strat.netProfit')}
-                value={`${latestOptimization.before_net_profit.toFixed(0)} → ${latestOptimization.after_net_profit.toFixed(0)}`}
+                value={`${(latestOptimization.before_net_profit ?? 0).toFixed(0)} → ${(latestOptimization.after_net_profit ?? 0).toFixed(0)}`}
               />
               <MiniStat
                 label={t('strat.sharpeRatio')}
-                value={`${latestOptimization.before_sharpe_ratio.toFixed(2)} → ${latestOptimization.after_sharpe_ratio.toFixed(2)}`}
+                value={`${(latestOptimization.before_sharpe_ratio ?? 0).toFixed(2)} → ${(latestOptimization.after_sharpe_ratio ?? 0).toFixed(2)}`}
               />
               <MiniStat
                 label={t('strat.combinationsTried')}

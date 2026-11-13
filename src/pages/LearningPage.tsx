@@ -35,6 +35,7 @@ export function LearningPage() {
         setTrades(tr);
         const byDay = new Map<string, number>();
         for (const trade of tr) {
+          if (!trade.close_time) continue;
           const day = trade.close_time.split('T')[0];
           byDay.set(day, (byDay.get(day) ?? 0) + trade.profit);
         }

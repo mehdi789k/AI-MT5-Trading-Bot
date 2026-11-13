@@ -34,7 +34,12 @@ export function AppLayout({ current, onNavigate, children }: SidebarProps & { ch
 
   const toggleBot = async () => {
     if (!isOnline) return;
-    await updateSettings({ is_running: !running });
+    try {
+      const ok = await updateSettings({ is_running: !running });
+      if (!ok) console.error('Failed to toggle bot');
+    } catch {
+      console.error('Failed to toggle bot');
+    }
   };
 
   const navItems: { id: PageId; label: string; icon: typeof LayoutDashboard }[] = [

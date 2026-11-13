@@ -39,9 +39,14 @@ export function AccountModeCard({ settings, updateSettings }: AccountModeCardPro
   const applyMode = async (next: AccountMode) => {
     setSaving(true);
     setFailed(false);
-    const ok = await updateSettings({ account_mode: next });
-    setSaving(false);
-    if (!ok) setFailed(true);
+    try {
+      const ok = await updateSettings({ account_mode: next });
+      if (!ok) setFailed(true);
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSelect = (next: AccountMode) => {

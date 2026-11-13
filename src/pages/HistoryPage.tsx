@@ -15,6 +15,7 @@ export function HistoryPage() {
   const [filterSymbol, setFilterSymbol] = useState('all');
   const [filterResult, setFilterResult] = useState('all');
   const [stats, setStats] = useState({ totalProfit: 0, totalTrades: 0, wins: 0, losses: 0 });
+  const [allSymbols, setAllSymbols] = useState<string[]>([]);
 
   const fetchTrades = useCallback(async () => {
     try {
@@ -44,7 +45,15 @@ export function HistoryPage() {
     fetchTrades();
   }, [fetchTrades]);
 
-  const symbols = Array.from(new Set(trades.map((tr) => tr.symbol)));
+  useEffect(() => {
+    supabase
+      .from('trade_history')
+      .select('symbol')
+      .order('symbol')
+      .then(({ data }) => {
+        if (data) setAllSymbols(Array.from(new Set((data as { symbol: string }[]).map((r) => r.symbol))));
+      });
+  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -86,7 +95,7 @@ export function HistoryPage() {
             className="bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-primary"
           >
             <option value="all">{t('hist.allSymbols')}</option>
-            {symbols.map((s) => (
+            {allSymbols.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>

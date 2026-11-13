@@ -79,9 +79,14 @@ export function RiskLimitsCard({ settings, updateSettings }: RiskLimitsCardProps
   const handleSave = async () => {
     if (!form || !canSave) return;
     setSaving(true);
-    const ok = await updateSettings(form);
-    setSaving(false);
-    setStatus(ok ? 'saved' : 'failed');
+    try {
+      const ok = await updateSettings(form);
+      setStatus(ok ? 'saved' : 'failed');
+    } catch {
+      setStatus('failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
