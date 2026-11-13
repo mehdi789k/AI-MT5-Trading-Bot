@@ -21,7 +21,8 @@ def calc_volume(risk_amount: float, entry_price: float, sl_price: float, symbol_
     step = symbol_info.volume_step
     volume = math.floor(raw_volume / step) * step
     volume = max(symbol_info.volume_min, min(volume, symbol_info.volume_max))
-    return round(volume, 2)
+    digits = max(0, -int(math.floor(math.log10(step)))) if step > 0 else 2
+    return round(volume, digits)
 
 
 def total_open_risk(positions) -> float:

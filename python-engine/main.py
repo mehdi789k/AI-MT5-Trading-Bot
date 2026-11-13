@@ -43,7 +43,7 @@ def _load_env_file(path: str) -> None:
 
 # ---- Config ----
 
-def _load_config() -> dict:
+def load_config() -> dict:
     engine_dir = os.path.dirname(__file__)
 
     # Pick up Supabase credentials from the project .env when config.json has none
@@ -68,14 +68,6 @@ def _load_config() -> dict:
             "into python-engine/config.json under \"supabase\"."
         )
     return config
-
-
-def load_config():
-    # Kept for callers expecting the original name
-    return _load_config()
-
-
-def _load_config() -> dict:
 
 
 def open_dashboard(config: dict) -> None:
@@ -516,7 +508,9 @@ class TradingEngine:
             return
         mt5_positions = mt5.positions_get()
         if mt5_positions is None:
-            mt5_positions = []
+            self._log_throttled("sync:positions_read", "warning",
+                "Could not read open positions from MT5 — position sync skipped this cycle", throttle_sec=60)
+            return
 
         db_positions = self.db.get_open_positions()
         db_tickets = {p["mt5_ticket"]: p for p in db_positions}
@@ -563,9 +557,7 @@ class TradingEngine:
     def handle_closed_position(self, ticket: int, db_pos: dict):
         """Move a closed position to trade_history."""
         # Try to get the deal from MT5 history
-        from_date = datetime.now(timezone.utc) - timedelta(days=1)
-        to_date = datetime.now(timezone.utc)
-        deals = mt5.history_deals_get(from_date, to_date)
+        deals = mt5.history_deals_get(position=ticket)
 
         close_price = db_pos.get("open_price", 0)
         profit = db_pos.get("profit", 0) or 0
@@ -738,7 +730,7 @@ class TradingEngine:
         if self.db is None:
             return
         try:
-            logs = self.db.get_recent_logs(limit=50)
+            logs = self.db.get_request_logs(["close_position", "cancel_pending_order", "run_backtest", "run_optimize"])
             for log_entry in logs:
                 details = log_entry.get("details")
                 if isinstance(details, str):
@@ -1139,7 +1131,11 @@ class TradingEngine:
         if not self._db_available():
             return
 
-        mt5_positions = mt5.positions_get() or []
+        mt5_positions = mt5.positions_get()
+        if mt5_positions is None:
+            self._log_throttled("trade:positions_read", "warning",
+                "Could not read open positions from MT5 — no new trades this cycle", throttle_sec=60)
+            return
         block_reason, updates = evaluate_capital(
             settings, account.equity, total_open_risk(mt5_positions), datetime.now(timezone.utc)
         )
@@ -1174,7 +1170,7 @@ class TradingEngine:
 
         # Get latest prediction per symbol (keyed case-insensitively)
         try:
-            predictions = self.db.get_recent_predictions(limit=50)
+            predictions = self.db.get_recent_predictions(limit=max(50, len(self.enabled_symbols) * 5))
         except Exception:
             return
 

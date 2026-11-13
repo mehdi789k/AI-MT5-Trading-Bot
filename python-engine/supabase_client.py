@@ -236,8 +236,12 @@ class SupabaseClient:
             },
         )
 
-    def get_recent_logs(self, limit: int = 20) -> list:
-        return self._get("bot_logs", {"order": "created_at.desc", "limit": str(limit)})
+    def get_request_logs(self, actions: list, limit: int = 50) -> list:
+        return self._get("bot_logs", {
+            "details->>action": f"in.({','.join(actions)})",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        })
 
     def mark_log_processed(self, log_id: int, details: dict):
         self._patch("bot_logs", f"id=eq.{log_id}", {"details": {**details, "_processed": True}})
