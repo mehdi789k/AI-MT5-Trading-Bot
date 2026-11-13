@@ -85,19 +85,24 @@ export function StrategyBacktest({ strategy }: { strategy: Strategy }) {
   const { optimizations } = useOptimizations(strategy.id);
 
   useEffect(() => {
-    supabase
-      .from('symbol_config')
-      .select('symbol')
-      .order('symbol')
-      .then(({ data, error }) => {
-        if (error || !data) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('symbol_config')
+          .select('symbol')
+          .order('symbol');
+        if (cancelled || error || !data) return;
         const rows = data as ConfiguredSymbol[];
         setSymbols(rows);
         if (rows.length > 0) {
           setForm((prev) => ({ ...prev, symbol: prev.symbol || rows[0].symbol }));
         }
-      })
-      .catch((err) => console.error('Failed to load symbols:', err));
+      } catch (err) {
+        console.error('Failed to load symbols:', err);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const fetchResults = useCallback(async () => {

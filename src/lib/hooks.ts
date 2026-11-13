@@ -322,7 +322,7 @@ export function usePolling<T>(
     doFetch();
     const interval = setInterval(doFetch, intervalMs);
     return () => clearInterval(interval);
-  }, [doFetch]);
+  }, [doFetch, intervalMs]);
 
   return { data, loading, error, refetch: doFetch };
 }
