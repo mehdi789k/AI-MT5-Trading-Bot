@@ -1,0 +1,25 @@
+{
+  "mt5": {
+    "login": 0,
+    "password": "",
+    "server": "",
+    "terminal_path": ""
+  },
+  "supabase": {
+    "url": "",
+    "anon_key": ""
+  },
+  "engine": {
+    "heartbeat_interval_sec": 5,
+    "decision_interval_sec": 10,
+    "prediction_interval_sec": 30
+  },
+  "broker": {
+    "timezone_offset_hours": 2
+  },
+  "dashboard": {
+    "url": "http://localhost:5173",
+    "open_on_start": true,
+    "open_delay_sec": 1.5
+  }
+}

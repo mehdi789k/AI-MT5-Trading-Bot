@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Vazirmatn:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3a4f #111720;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #111720;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2a3a4f;
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a4f6b;
+}
+
+body {
+  background-color: #0a0e14;
+  color: #e2e8f0;
+}
+
+/* RTL: Persian font */
+[dir="rtl"] body,
+[dir="rtl"] .font-sans {
+  font-family: 'Vazirmatn', 'Inter', system-ui, sans-serif;
+}
+
+[dir="ltr"] body,
+[dir="ltr"] .font-sans {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* RTL table alignment fixes */
+[dir="rtl"] table {
+  text-align: right;
+}
+
+/* Number/input fields stay LTR even in RTL mode */
+[dir="rtl"] input[type="number"],
+[dir="rtl"] .font-mono {
+  direction: ltr;
+}
