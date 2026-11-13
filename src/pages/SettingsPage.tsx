@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Settings as SettingsIcon, Plus, Trash2, Save, Coins, Shield, Layers, Search, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, Trash2, Save, Coins, Shield, Layers, Search, Check, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useBotSettings, useStrategies } from '@/lib/hooks';
 import { useTranslation } from '@/lib/i18n';
@@ -142,6 +142,14 @@ export function SettingsPage() {
       await updateSettings({ trading_paused: false, peak_equity: null });
     } catch {
       console.error('Failed to resume trading');
+    }
+  };
+
+  const resetDailyLoss = async () => {
+    try {
+      await updateSettings({ day_start_key: null, day_start_equity: null });
+    } catch {
+      console.error('Failed to reset daily loss');
     }
   };
 
@@ -420,11 +428,19 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end items-center gap-3">
-          {capitalSaveError && <span className="text-danger-text text-sm">{t('ai.saveFailed')}</span>}
-          <Button onClick={saveCapital} disabled={savingCapital}>
-            <Save size={16} className="mr-2" /> {savingCapital ? t('set.saving') : t('cap.saveCapital')}
-          </Button>
+        <div className="mt-5 flex justify-between items-center gap-3 flex-wrap">
+          <div className="max-w-md">
+            <Button variant="ghost" onClick={resetDailyLoss}>
+              <RotateCcw size={16} className="mr-2" /> {t('cap.resetDailyLoss')}
+            </Button>
+            <p className="text-text-muted text-xs mt-1">{t('cap.resetDailyLossDesc')}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {capitalSaveError && <span className="text-danger-text text-sm">{t('ai.saveFailed')}</span>}
+            <Button onClick={saveCapital} disabled={savingCapital}>
+              <Save size={16} className="mr-2" /> {savingCapital ? t('set.saving') : t('cap.saveCapital')}
+            </Button>
+          </div>
         </div>
       </Card>
 

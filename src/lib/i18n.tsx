@@ -325,6 +325,8 @@ const translations: Record<Lang, Record<string, string>> = {
     'cap.tradingPaused': 'Trading Paused',
     'cap.tradingPausedDesc': 'Automatically paused by safety limits. Click to resume.',
     'cap.resumeTrading': 'Resume Trading',
+    'cap.resetDailyLoss': 'Reset Daily Loss',
+    'cap.resetDailyLossDesc': 'Starts a new daily loss count from the current balance and lifts a daily-limit block.',
     'cap.saveCapital': 'Save Capital Protection',
 
     // Limit orders
@@ -794,6 +796,8 @@ const translations: Record<Lang, Record<string, string>> = {
     'cap.tradingPaused': 'ترید متوقف شده',
     'cap.tradingPausedDesc': 'به‌صورت خودکار توسط محدودیت‌های ایمنی متوقف شده. برای ازسراگیری کلیک کنید.',
     'cap.resumeTrading': 'ازسراگیری ترید',
+    'cap.resetDailyLoss': 'ریست دستی زیان روزانه',
+    'cap.resetDailyLossDesc': 'شمارش زیان روزانه را از موجودی فعلی از نو شروع می‌کند و محدودیت سقف زیان روزانه را برمی‌دارد.',
     'cap.saveCapital': 'ذخیره محافظت از سرمایه',
 
     // Limit orders
