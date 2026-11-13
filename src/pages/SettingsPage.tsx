@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import { Card, Badge, Button, Toggle, Modal } from '@/components/ui';
 import type { SymbolConfig, SymbolCategory, Mt5Symbol } from '@/lib/types';
 import { AiPredictionSettingsCard } from '@/components/AiPredictionSettingsCard';
+import { AccountModeCard } from '@/components/AccountModeCard';
 
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1'];
 
@@ -182,6 +183,8 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <AccountModeCard settings={settings} updateSettings={updateSettings} />
+
       {/* Global Settings */}
       <Card className="p-6">
         <h3 className="text-text-primary font-semibold flex items-center gap-2 mb-5">

@@ -17,6 +17,7 @@ import { formatDateTime } from '@/lib/format';
 import type { TradeHistory, BotLog } from '@/lib/types';
 import { PnlChart } from '@/components/PnlChart';
 import { PredictionAccuracyChart } from '@/components/PredictionAccuracyChart';
+import { RiskLimitsCard } from '@/components/RiskLimitsCard';
 import { buildDailyPnl } from '@/lib/performance';
 import { getBilingualActivity } from '@/lib/activity';
 import { Sparkles } from 'lucide-react';
@@ -40,7 +41,7 @@ type LatestOptimization = {
 export function DashboardPage() {
   const { t, lang } = useTranslation();
   const fmt = useFormat();
-  const { settings, isOnline } = useBotSettings();
+  const { settings, isOnline, updateSettings } = useBotSettings();
   const { positions } = useOpenPositions();
   const recentTrades = useRecentTrades(14);
   const [todayTrades, setTodayTrades] = useState<TradeHistory[]>([]);
@@ -195,6 +196,8 @@ export function DashboardPage() {
           </div>
         </div>
       </Card>
+
+      <RiskLimitsCard settings={settings} updateSettings={updateSettings} />
 
       {/* Capital Safety Row */}
       <Card className="p-5">
