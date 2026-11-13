@@ -269,6 +269,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'pred.bullish': 'Bullish',
     'pred.bearish': 'Bearish',
     'pred.neutral': 'Neutral',
+    'pred.gapFromHalf': 'Distance from 50%',
     'pred.noPrediction': 'No prediction yet — engine will generate one when running',
 
     // Learning
@@ -740,6 +741,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'pred.bullish': 'صعودی',
     'pred.bearish': 'نزولی',
     'pred.neutral': 'خنثی',
+    'pred.gapFromHalf': 'فاصله از ۵۰٪',
     'pred.noPrediction': 'هنوز پیش‌بینی‌ای نیست — موتور هنگام اجرا تولید می‌کند',
 
     // Learning

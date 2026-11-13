@@ -170,7 +170,7 @@ function PredictionCard({ symbol, categoryLabel, prediction, t, fmt, lang }: Pre
           </div>
           <div className="space-y-1.5">
             <div className="flex justify-between text-sm">
-              <span className="text-text-muted">{t('pred.confidence')}</span>
+              <span className="text-text-muted">{direction === 'neutral' ? t('pred.gapFromHalf') : t('pred.confidence')}</span>
               <span className="font-mono font-semibold text-text-primary">{fmt.percent(confidence)}</span>
             </div>
             <div className="w-full h-2 bg-bg-tertiary rounded-full overflow-hidden">
