@@ -52,15 +52,22 @@ pip install -r python-engine/requirements.txt
 
 ### مرحله 2: تنظیم config.json
 
-فایل `python-engine/config.json` را با اطلاعات حساب دمو MT5 خود پر کنید:
+فایل `python-engine/config.json` را پر کنید. بخش `demo` برای حساب دمو و بخش `live` برای حساب واقعی است. حالت فعال از داشبورد (صفحه تنظیمات) انتخاب می‌شود. اگر اطلاعات بخش `live` خالی بماند، ربات از حسابی که در ترمینال MT5 باز است استفاده می‌کند و فقط در صورتی معامله می‌کند که نوع حساب با حالت انتخابی یکی باشد.
 
 ```json
 {
   "mt5": {
-    "login": 12345678,
-    "password": "your_demo_password",
-    "server": "your_broker_demo_server",
-    "terminal_path": "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
+    "terminal_path": "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
+    "demo": {
+      "login": 12345678,
+      "password": "your_demo_password",
+      "server": "your_broker_demo_server"
+    },
+    "live": {
+      "login": 87654321,
+      "password": "your_live_password",
+      "server": "your_broker_live_server"
+    }
   },
   "supabase": {
     "url": "your_supabase_url",

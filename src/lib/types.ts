@@ -14,6 +14,8 @@ export interface BotSettings {
   max_total_risk_percent: number;
   risk_per_trade_mode: 'percent' | 'fixed';
   fixed_risk_amount: number;
+  account_mode: 'demo' | 'live';
+  mt5_account_type: 'demo' | 'real' | 'contest' | null;
   enable_limit_orders: boolean;
   limit_order_offset_points: number;
   daily_loss_reset_hour: number;

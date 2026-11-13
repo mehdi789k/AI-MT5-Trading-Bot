@@ -90,7 +90,7 @@ class SupabaseClient:
         rows = self._get("bot_settings", {"id": "eq.1"})
         return rows[0] if rows else {}
 
-    def update_heartbeat(self, balance: float, equity: float, mt5_connected: bool):
+    def update_heartbeat(self, balance: float, equity: float, mt5_connected: bool, account_type: Optional[str] = None):
         self._patch(
             "bot_settings",
             "id=eq.1",
@@ -99,6 +99,7 @@ class SupabaseClient:
                 "account_balance": balance,
                 "account_equity": equity,
                 "mt5_connected": mt5_connected,
+                "mt5_account_type": account_type,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             },
         )

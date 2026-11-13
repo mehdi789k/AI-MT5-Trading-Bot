@@ -1,9 +1,16 @@
 {
   "mt5": {
-    "login": 0,
-    "password": "",
-    "server": "",
-    "terminal_path": ""
+    "terminal_path": "",
+    "demo": {
+      "login": 0,
+      "password": "",
+      "server": ""
+    },
+    "live": {
+      "login": 0,
+      "password": "",
+      "server": ""
+    }
   },
   "supabase": {
     "url": "",

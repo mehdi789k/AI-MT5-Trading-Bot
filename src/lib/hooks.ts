@@ -210,7 +210,7 @@ export function useAiPredictionSettings() {
   }, [fetchSettings]);
 
   const saveSettings = useCallback(
-    async (patch: Record<AiTunableKey, number>) => {
+    async (patch: Partial<Record<AiTunableKey, number>>) => {
       const { error } = await supabase
         .from('ai_prediction_settings')
         .update({ ...patch, updated_at: new Date().toISOString() })

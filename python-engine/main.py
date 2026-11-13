@@ -110,55 +110,58 @@ TF_MINUTES = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 240, "D1":
 _mt5_cfg: dict = {}
 
 
-def connect_mt5(cfg: dict) -> bool:
-    """Initialize MT5 connection with login credentials."""
+def _account_type(info) -> Optional[str]:
+    return {
+        mt5.ACCOUNT_TRADE_MODE_DEMO: "demo",
+        mt5.ACCOUNT_TRADE_MODE_CONTEST: "contest",
+        mt5.ACCOUNT_TRADE_MODE_REAL: "real",
+    }.get(info.trade_mode)
+
+
+def connect_mt5(cfg: dict, mode: str) -> bool:
+    """Log the MT5 terminal into the demo or live account configured for `mode`."""
     global _mt5_cfg
     mt5_cfg = cfg.get("mt5", {})
-    login = mt5_cfg.get("login", 0)
-    password = mt5_cfg.get("password", "")
-    server = mt5_cfg.get("server", "")
-    path = mt5_cfg.get("terminal_path", "")
-    _mt5_cfg = mt5_cfg
+    _mt5_cfg = {
+        "mode": mode,
+        "terminal_path": mt5_cfg.get("terminal_path", ""),
+        **mt5_cfg.get(mode, {}),
+    }
+    return _initialize_mt5()
 
-    kwargs = {}
-    if path:
-        kwargs["path"] = path
-    if login:
-        kwargs["login"] = login
-    if password:
-        kwargs["password"] = password
-    if server:
-        kwargs["server"] = server
 
-    if not mt5.initialize(**kwargs):
+def _initialize_mt5() -> bool:
+    if not mt5.initialize(**_build_mt5_kwargs()):
         print(f"MT5 initialize failed: {mt5.last_error()}")
         return False
 
     info = mt5.account_info()
     if info is None:
         print("MT5: failed to get account info")
+        mt5.shutdown()
         return False
 
-    print(f"MT5 connected: {info.name} | Balance: {info.balance} {info.currency}")
+    expected = _mt5_cfg["mode"]
+    actual = _account_type(info)
+    if actual != expected:
+        print(f"MT5 account mismatch: selected {expected} mode but the terminal is logged into "
+              f"a {actual or 'unknown'} account ({info.login}). Trading is blocked.")
+        mt5.shutdown()
+        return False
+
+    print(f"MT5 connected ({expected}): {info.name} | Balance: {info.balance} {info.currency}")
     return True
 
 
 def ensure_mt5_connected() -> bool:
-    """Check MT5 connection and reinitialize if dropped. Returns True if connected."""
-    if mt5.terminal_info() is not None and mt5.account_info() is not None:
+    """Check MT5 connection and reinitialize if dropped or logged into the wrong account."""
+    info = mt5.account_info() if mt5.terminal_info() is not None else None
+    if info is not None and _account_type(info) == _mt5_cfg.get("mode"):
         return True
-    print("MT5 connection lost — attempting reinitialize...")
+    print("MT5 connection lost or wrong account — attempting reinitialize...")
     mt5.shutdown()
     time.sleep(2)
-    if not mt5.initialize(**_build_mt5_kwargs()):
-        print(f"MT5 reinitialize failed: {mt5.last_error()}")
-        return False
-    info = mt5.account_info()
-    if info is None:
-        print("MT5: failed to get account info after reconnect")
-        return False
-    print(f"MT5 reconnected: {info.name} | Balance: {info.balance} {info.currency}")
-    return True
+    return _initialize_mt5()
 
 
 def _build_mt5_kwargs() -> dict:
@@ -387,13 +390,42 @@ class TradingEngine:
         except Exception as e:
             self.log("warning", f"AI settings reload failed, keeping last known values: {e}")
 
-    def heartbeat(self, balance: float, equity: float):
+    def heartbeat(self, balance: float, equity: float, account_type: Optional[str]):
         if self.db is None:
             return
         try:
-            self.db.update_heartbeat(balance, equity, True)
+            self.db.update_heartbeat(balance, equity, True, account_type)
         except Exception as e:
             print(f"Heartbeat failed: {e}")
+
+    def _desired_account_mode(self) -> str:
+        if self.db is None:
+            return "demo"
+        return self.get_settings().get("account_mode") or "demo"
+
+    def apply_account_mode(self):
+        """Switch the MT5 login to the account selected in the dashboard, only when the bot is idle."""
+        if self.db is None:
+            return
+        settings = self.get_settings()
+        desired = settings.get("account_mode")
+        if desired not in ("demo", "live") or desired == _mt5_cfg.get("mode"):
+            return
+        if settings.get("is_running"):
+            self._log_throttled("mode:running", "warning",
+                "Account switch requested but the bot is running — stop the bot first", throttle_sec=300)
+            return
+        open_positions = mt5.positions_get()
+        open_orders = mt5.orders_get()
+        if open_positions is None or open_orders is None:
+            return
+        if open_positions or open_orders:
+            self._log_throttled("mode:open", "warning",
+                "Account switch requested but there are open positions or orders — close them first", throttle_sec=300)
+            return
+        self.log("info", f"Switching MT5 to the {desired} account")
+        mt5.shutdown()
+        self._mt5_connected = connect_mt5(self.config, desired)
 
     def sync_enabled_symbols(self):
         if self.db is None:
@@ -1473,12 +1505,9 @@ class TradingEngine:
         """Main engine loop."""
         self.log("info", "Trading engine starting...")
 
-        if not connect_mt5(self.config):
-            self.log("error", "Failed to connect to MT5. Check config.json credentials.")
-            return
-
-        self._mt5_connected = True
-        self.log("info", "MT5 connected successfully")
+        self._mt5_connected = connect_mt5(self.config, self._desired_account_mode())
+        if not self._mt5_connected:
+            self.log("error", "MT5 is not connected to the selected account — retrying automatically")
         self.sync_enabled_symbols()
 
         hb_interval = self.config["engine"].get("heartbeat_interval_sec", 5)
@@ -1500,6 +1529,7 @@ class TradingEngine:
 
                 # Check MT5 connection every 10 seconds and reconnect if needed
                 if now - last_reconnect_check >= 10:
+                    self.apply_account_mode()
                     if not ensure_mt5_connected():
                         if self._mt5_connected:
                             self.log("error", "MT5 connection lost — reconnecting...")
@@ -1515,7 +1545,7 @@ class TradingEngine:
                     try:
                         account = mt5.account_info()
                         if account:
-                            self.heartbeat(account.balance, account.equity)
+                            self.heartbeat(account.balance, account.equity, _account_type(account))
                         else:
                             self.db.update_heartbeat(0, 0, False)
                     except Exception as e:
