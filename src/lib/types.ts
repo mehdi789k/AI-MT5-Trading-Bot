@@ -29,6 +29,7 @@ export interface BotSettings {
 export type SymbolCategory = 'forex' | 'metals' | 'indices' | 'crypto' | 'energy' | 'stocks';
 export type SLTPMode = 'fixed' | 'dynamic';
 export type OrderTypeMode = 'market' | 'limit' | 'both';
+export type ProfitTargetMode = 'points' | 'percent';
 
 export interface Mt5Symbol {
   symbol: string;
@@ -59,6 +60,15 @@ export interface SymbolConfig {
   order_type: OrderTypeMode;
   limit_order_distance_mult: number;
   limit_order_expiry_hours: number;
+  profit_target_mode: ProfitTargetMode;
+  break_even_enabled: boolean;
+  break_even_trigger: number;
+  partial_close_enabled: boolean;
+  partial_stage1_trigger: number;
+  partial_stage1_close_percent: number;
+  partial_stage2_enabled: boolean;
+  partial_stage2_trigger: number;
+  partial_stage2_close_percent: number;
   strategy_id: string | null;
   strategy_mode: StrategyMode;
   created_at: string;
@@ -66,7 +76,7 @@ export interface SymbolConfig {
 }
 
 export type PositionType = 'buy' | 'sell';
-export type CloseReason = 'tp_hit' | 'sl_hit' | 'model_signal' | 'manual' | 'error';
+export type CloseReason = 'tp_hit' | 'sl_hit' | 'model_signal' | 'manual' | 'error' | 'partial_close';
 
 export interface OpenPosition {
   id: string;

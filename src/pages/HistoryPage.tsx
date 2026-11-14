@@ -195,6 +195,7 @@ function ReasonBadge({ reason, t }: { reason: string; t: (key: string) => string
     model_signal: { variant: 'info', key: 'hist.reason.modelSignal' },
     manual: { variant: 'neutral', key: 'hist.reason.manual' },
     error: { variant: 'warning', key: 'hist.reason.error' },
+    partial_close: { variant: 'info', key: 'hist.reason.partialClose' },
   };
   const cfg = map[reason] ?? map.manual;
   return <Badge variant={cfg.variant}>{t(cfg.key)}</Badge>;

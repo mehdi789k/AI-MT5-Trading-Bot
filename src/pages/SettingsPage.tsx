@@ -7,6 +7,7 @@ import { Card, Badge, Button, Toggle, Modal } from '@/components/ui';
 import type { SymbolConfig, SymbolCategory, Mt5Symbol } from '@/lib/types';
 import { AiPredictionSettingsCard } from '@/components/AiPredictionSettingsCard';
 import { AccountModeCard } from '@/components/AccountModeCard';
+import { ProfitProtectionFields } from '@/components/ProfitProtectionFields';
 
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1'];
 
@@ -783,6 +784,11 @@ export function SettingsPage() {
                   />
                 )}
               </div>
+
+              <ProfitProtectionFields
+                config={editingSymbol}
+                onChange={(patch) => setEditingSymbol({ ...editingSymbol, ...patch })}
+              />
             </div>
 
             <div className="flex gap-3 justify-end items-center mt-6">

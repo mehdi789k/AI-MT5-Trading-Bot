@@ -19,7 +19,8 @@ from typing import List, Dict, Optional
 from supabase_client import SupabaseClient
 from indicators import extract_features, atr as calc_atr
 from ai_model import PredictionModel
-from risk import calc_volume, evaluate_capital, total_open_risk
+from risk import calc_volume, evaluate_capital, total_open_risk, money_per_price_unit
+from profit_protection import break_even_needed, favorable_move, partial_close_volume, target_reached
 from orders import limit_entry_price, send_pending_order, cancel_pending_order
 from strategy_runner import StrategyRunner, StrategyError, run_backtest
 from optimizer import optimize_strategy
@@ -301,6 +302,12 @@ def close_position(ticket: int, symbol: str, position_type: str, volume: float) 
 
     print(f"Position closed: ticket={ticket}")
     return True
+
+
+def _last_exit_deal(ticket: int):
+    deals = mt5.history_deals_get(position=ticket) or []
+    exits = [d for d in deals if d.position_id == ticket and d.entry == mt5.DEAL_ENTRY_OUT]
+    return exits[-1] if exits else None
 
 
 # ---- Engine ----
@@ -588,53 +595,22 @@ class TradingEngine:
 
     def handle_closed_position(self, ticket: int, db_pos: dict):
         """Move a closed position to trade_history."""
-        # Try to get the deal from MT5 history
-        deals = mt5.history_deals_get(position=ticket)
-
         close_price = db_pos.get("open_price", 0)
         profit = db_pos.get("profit", 0) or 0
         close_reason = "manual"
 
-        if deals:
-            for deal in deals:
-                if deal.position_id == ticket and deal.entry == mt5.DEAL_ENTRY_OUT:
-                    close_price = deal.price
-                    profit = deal.profit
-                    # Determine close reason
-                    if db_pos.get("take_profit") and abs(deal.price - db_pos["take_profit"]) < 1e-5:
-                        close_reason = "tp_hit"
-                    elif db_pos.get("stop_loss") and abs(deal.price - db_pos["stop_loss"]) < 1e-5:
-                        close_reason = "sl_hit"
-                    else:
-                        close_reason = "model_signal"
-                    break
+        exit_deal = _last_exit_deal(ticket)
+        if exit_deal is not None:
+            close_price = exit_deal.price
+            profit = exit_deal.profit
+            if db_pos.get("take_profit") and abs(exit_deal.price - db_pos["take_profit"]) < 1e-5:
+                close_reason = "tp_hit"
+            elif db_pos.get("stop_loss") and abs(exit_deal.price - db_pos["stop_loss"]) < 1e-5:
+                close_reason = "sl_hit"
+            else:
+                close_reason = "model_signal"
 
-        # Get features stored at entry (from trade history if available)
-        trade_row = {
-            "mt5_ticket": ticket,
-            "symbol": db_pos["symbol"],
-            "position_type": db_pos["position_type"],
-            "volume": db_pos["volume"],
-            "open_price": db_pos["open_price"],
-            "close_price": close_price,
-            "stop_loss": db_pos.get("stop_loss"),
-            "take_profit": db_pos.get("take_profit"),
-            "sl_tp_mode": db_pos.get("sl_tp_mode", "fixed"),
-            "profit": profit,
-            "close_reason": close_reason,
-            "open_time": db_pos["open_time"],
-            "close_time": datetime.now(timezone.utc).isoformat(),
-            "feat_rsi": None,
-            "feat_atr": None,
-            "feat_macd": None,
-            "feat_trend": None,
-            "feat_volatility": None,
-            "feat_ema_fast": None,
-            "feat_ema_slow": None,
-            "feat_time_hour": datetime.now(timezone.utc).hour,
-            "feat_day_of_week": datetime.now(timezone.utc).weekday(),
-            "prediction_confidence": db_pos.get("prediction_confidence"),
-        }
+        trade_row = self._history_row(ticket, db_pos, db_pos["volume"], close_price, profit, close_reason)
 
         try:
             self.db.add_trade_history(trade_row)
@@ -645,6 +621,109 @@ class TradingEngine:
             self.log("warning",
                 f"Position {ticket} closed at the broker (P/L={profit:.2f}, reason={close_reason}) but could not be "
                 f"recorded in history yet ({e}) — it will be re-processed on the next sync", db_pos["symbol"])
+
+    def _history_row(self, ticket: int, db_pos: dict, volume: float, close_price: float,
+                     profit: float, close_reason: str, close_seq: int = 0) -> dict:
+        now = datetime.now(timezone.utc)
+        return {
+            "mt5_ticket": ticket,
+            "close_seq": close_seq,
+            "symbol": db_pos["symbol"],
+            "position_type": db_pos["position_type"],
+            "volume": volume,
+            "open_price": db_pos["open_price"],
+            "close_price": close_price,
+            "stop_loss": db_pos.get("stop_loss"),
+            "take_profit": db_pos.get("take_profit"),
+            "sl_tp_mode": db_pos.get("sl_tp_mode", "fixed"),
+            "profit": profit,
+            "close_reason": close_reason,
+            "open_time": db_pos["open_time"],
+            "close_time": now.isoformat(),
+            "feat_rsi": None,
+            "feat_atr": None,
+            "feat_macd": None,
+            "feat_trend": None,
+            "feat_volatility": None,
+            "feat_ema_fast": None,
+            "feat_ema_slow": None,
+            "feat_time_hour": now.hour,
+            "feat_day_of_week": now.weekday(),
+            "prediction_confidence": db_pos.get("prediction_confidence"),
+        }
+
+    def _apply_break_even(self, pos):
+        if not break_even_needed("buy" if pos.type == mt5.POSITION_TYPE_BUY else "sell", pos.price_open, pos.sl):
+            self.db.update_position(pos.ticket, break_even_applied=True)
+            return
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "symbol": pos.symbol,
+            "position": pos.ticket,
+            "sl": pos.price_open,
+            "tp": pos.tp,
+        }
+        result = mt5.order_send(request)
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            self.log("warning", f"Break-even move failed for position {pos.ticket}; will retry", pos.symbol)
+            return
+        self.db.update_position(pos.ticket, break_even_applied=True, stop_loss=pos.price_open)
+        self.log("info", f"Stop loss of position {pos.ticket} moved to entry price (break-even)", pos.symbol)
+
+    def _run_partial_stage(self, pos, pos_type: str, sym_cfg: dict, db_row: dict, info, move: float):
+        done = db_row.get("partial_stages_done", 0) or 0
+        stages = [(sym_cfg["partial_stage1_trigger"], sym_cfg["partial_stage1_close_percent"])]
+        if sym_cfg.get("partial_stage2_enabled"):
+            stages.append((sym_cfg["partial_stage2_trigger"], sym_cfg["partial_stage2_close_percent"]))
+        if done >= len(stages):
+            return
+
+        trigger, percent = stages[done]
+        mode = sym_cfg.get("profit_target_mode", "points")
+        if not target_reached(move, pos.price_open, mode, trigger, info.point):
+            return
+
+        stage_no = done + 1
+        volume = partial_close_volume(pos.volume, percent, info.volume_min, info.volume_step)
+        if volume is None:
+            self.db.update_position(pos.ticket, partial_stages_done=stage_no)
+            self.log("warning", f"Partial close stage {stage_no} skipped for position {pos.ticket}: volume is too small to split", pos.symbol)
+            return
+
+        if not close_position(pos.ticket, pos.symbol, pos_type, volume):
+            self.log("warning", f"Partial close stage {stage_no} failed for position {pos.ticket}; will retry", pos.symbol)
+            return
+
+        exit_deal = _last_exit_deal(pos.ticket)
+        if exit_deal is not None:
+            close_price, profit = exit_deal.price, exit_deal.profit
+        else:
+            close_price = pos.price_open + move if pos_type == "buy" else pos.price_open - move
+            profit = move * volume * money_per_price_unit(info)
+
+        remaining = round(pos.volume - volume, 8)
+        self.db.update_position(pos.ticket, volume=remaining, partial_stages_done=stage_no)
+        self.db.add_trade_history(self._history_row(
+            pos.ticket, db_row, volume, close_price, profit, "partial_close", close_seq=stage_no))
+        self.log("info", f"Closed {volume} lots of position {pos.ticket} at partial stage {stage_no} "
+                         f"(P/L={profit:.2f}), {remaining} lots still open", pos.symbol)
+
+    def _apply_profit_protection(self, pos, sym_cfg: dict, db_row: dict):
+        info = mt5.symbol_info(pos.symbol)
+        tick = mt5.symbol_info_tick(pos.symbol)
+        if info is None or tick is None:
+            return
+        pos_type = "buy" if pos.type == mt5.POSITION_TYPE_BUY else "sell"
+        price = tick.bid if pos_type == "buy" else tick.ask
+        move = favorable_move(pos_type, pos.price_open, price)
+        mode = sym_cfg.get("profit_target_mode", "points")
+
+        if (sym_cfg.get("break_even_enabled") and not db_row.get("break_even_applied")
+                and target_reached(move, pos.price_open, mode, sym_cfg["break_even_trigger"], info.point)):
+            self._apply_break_even(pos)
+
+        if sym_cfg.get("partial_close_enabled"):
+            self._run_partial_stage(pos, pos_type, sym_cfg, db_row, info, move)
 
     def build_trade_levels(self, entry_price: float, direction: str, atr_val: float, sl_tp_mode: str,
                            sym: dict, sym_info, settings: dict, account, risk_percent: float):
@@ -1443,6 +1522,7 @@ class TradingEngine:
         positions = mt5.positions_get()
         if not positions:
             return
+        db_rows = {p["mt5_ticket"]: p for p in self.db.get_open_positions()} if self.db is not None else {}
 
         for pos in positions:
             symbol = pos.symbol
@@ -1452,6 +1532,10 @@ class TradingEngine:
                 if s["symbol"].lower() == symbol.lower():
                     sym_cfg = s
                     break
+
+            if (sym_cfg and pos.ticket in db_rows
+                    and (sym_cfg.get("break_even_enabled") or sym_cfg.get("partial_close_enabled"))):
+                self._apply_profit_protection(pos, sym_cfg, db_rows[pos.ticket])
 
             if sym_cfg and sym_cfg.get("use_trailing_stop") and sym_cfg.get("trailing_stop_points", 0) > 0:
                 tick = mt5.symbol_info_tick(symbol)
