@@ -18,6 +18,7 @@ import { StatusIndicator } from '@/components/StatusIndicator';
 import { useBotSettings } from '@/lib/hooks';
 import { useTranslation, type Lang } from '@/lib/i18n';
 import { Button } from '@/components/ui';
+import { EngineShutdownButton } from '@/components/EngineShutdownButton';
 
 export type PageId = 'dashboard' | 'positions' | 'history' | 'settings' | 'predictions' | 'learning' | 'strategies';
 
@@ -209,6 +210,7 @@ function PowerControl({
           {running ? t('power.stopBot') : t('power.startBot')}
         </span>
       </Button>
+      <EngineShutdownButton isOnline={isOnline} />
       {!isOnline && (
         <p className="text-text-muted text-xs text-center">{t('power.engineOffline')}</p>
       )}

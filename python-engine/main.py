@@ -345,6 +345,8 @@ class TradingEngine:
         self.strategy_runner = StrategyRunner()
         self.strategy_cache: Dict[str, dict] = {}  # strategy_id → {code, name}
         self._recent_order_keys: Dict[str, float] = {}  # dedup key → timestamp
+        self._shutdown_requested = False
+        self._started_at = datetime.now(timezone.utc)
         self._log_throttle: Dict[str, float] = {}  # throttle key → last log time
         self._acted_signals: Dict[str, float] = {}  # strategy signal id → acted-on time
         self._db_ok = True
@@ -841,7 +843,7 @@ class TradingEngine:
         if self.db is None:
             return
         try:
-            logs = self.db.get_request_logs(["close_position", "cancel_pending_order", "run_backtest", "run_optimize"])
+            logs = self.db.get_request_logs(["close_position", "cancel_pending_order", "run_backtest", "run_optimize", "shutdown_engine"])
             for log_entry in logs:
                 details = log_entry.get("details")
                 if isinstance(details, str):
@@ -857,6 +859,9 @@ class TradingEngine:
                     ticket = details.get("mt5_ticket")
                     if ticket:
                         self.handle_cancel_request(ticket)
+                elif action == "shutdown_engine":
+                    if datetime.fromisoformat(log_entry["created_at"]) >= self._started_at:
+                        self.request_shutdown()
                 elif action == "run_backtest":
                     try:
                         self.handle_backtest_request(details)
@@ -872,6 +877,11 @@ class TradingEngine:
                 self.db.mark_log_processed(log_entry["id"], details)
         except Exception as e:
             self.log("warning", f"Failed to check dashboard requests: {e}")
+
+    def request_shutdown(self):
+        self.db.update_settings(is_running=False)
+        self.log("info", "Shutdown requested from the dashboard — stopping the engine")
+        self._shutdown_requested = True
 
     def handle_close_request(self, ticket: int):
         positions = mt5.positions_get(ticket=ticket)
@@ -1609,6 +1619,8 @@ class TradingEngine:
 
         try:
             while True:
+                if self._shutdown_requested:
+                    break
                 now = time.time()
 
                 # Check MT5 connection every 10 seconds and reconnect if needed
